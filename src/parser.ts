@@ -62,14 +62,13 @@ export function parseSeatAvailability(response: TCDDResponse): ParsedAvailabilit
             }, 0);
             
             if (totalAvailability > 0) {
-              // Tekerlekli sandalye koltuklarını filtrele
-              const isWheelchairSeat = car.availabilities.some(availability => 
-                availability.cabinClass?.name?.toLowerCase().includes('tekerlekli') ||
-                availability.cabinClass?.name?.toLowerCase().includes('wheelchair') ||
-                availability.cabinClass?.code?.toLowerCase().includes('wheelchair')
+              // Sadece C, L, Y1 cabin class'larını dikkate al
+              const validCabinClasses = ['C', 'L', 'Y1'];
+              const hasValidCabinClass = car.availabilities.some(availability => 
+                validCabinClasses.includes(availability.cabinClass?.code || '')
               );
               
-              if (!isWheelchairSeat) {
+              if (hasValidCabinClass) {
                 const coachInfo = {
                   coachName: `Vagon ${car.name}`,
                   availableSeats: totalAvailability,
@@ -92,14 +91,13 @@ export function parseSeatAvailability(response: TCDDResponse): ParsedAvailabilit
             }, 0);
             
             if (totalAvailability > 0) {
-              // Tekerlekli sandalye koltuklarını filtrele
-              const isWheelchairSeat = car.availabilities.some(availability => 
-                availability.cabinClass?.name?.toLowerCase().includes('tekerlekli') ||
-                availability.cabinClass?.name?.toLowerCase().includes('wheelchair') ||
-                availability.cabinClass?.code?.toLowerCase().includes('wheelchair')
+              // Sadece C, L, Y1 cabin class'larını dikkate al
+              const validCabinClasses = ['C', 'L', 'Y1'];
+              const hasValidCabinClass = car.availabilities.some(availability => 
+                validCabinClasses.includes(availability.cabinClass?.code || '')
               );
               
-              if (!isWheelchairSeat) {
+              if (hasValidCabinClass) {
                 const coachInfo = {
                   coachName: `Vagon ${car.name}`,
                   availableSeats: totalAvailability,
