@@ -28,6 +28,10 @@ export function parseSeatAvailability(response: TCDDResponse): ParsedAvailabilit
     coaches: SeatAvailability[];
   }>();
   
+  // Bugünün tarihini al
+  const today = new Date().toISOString().split('T')[0];
+  const currentTime = new Date().toTimeString().slice(0, 5); // HH:MM format
+  
   for (const trainLeg of response.trainLegs) {
     for (const trainAvailability of trainLeg.trainAvailabilities) {
       for (const train of trainAvailability.trains) {
@@ -37,6 +41,12 @@ export function parseSeatAvailability(response: TCDDResponse): ParsedAvailabilit
           const timestamp = train.segments[0].departureTime;
           const date = new Date(timestamp);
           departureTime = date.toTimeString().slice(0, 5); // HH:MM format
+        }
+        
+        // Bugün ise geçmiş saatleri filtrele
+        const responseDate = new Date().toISOString().split('T')[0];
+        if (responseDate === today && departureTime < currentTime) {
+          continue; // Geçmiş saatleri atla
         }
         
         // Tren için unique key oluştur (trainNumber + departureTime)
@@ -52,15 +62,24 @@ export function parseSeatAvailability(response: TCDDResponse): ParsedAvailabilit
             }, 0);
             
             if (totalAvailability > 0) {
-              const coachInfo = {
-                coachName: `Vagon ${car.name}`,
-                availableSeats: totalAvailability,
-                trainNumber: train.number,
-                departureTime: departureTime
-              };
+              // Tekerlekli sandalye koltuklarını filtrele
+              const isWheelchairSeat = car.availabilities.some(availability => 
+                availability.cabinClass?.name?.toLowerCase().includes('tekerlekli') ||
+                availability.cabinClass?.name?.toLowerCase().includes('wheelchair') ||
+                availability.cabinClass?.code?.toLowerCase().includes('wheelchair')
+              );
               
-              coaches.push(coachInfo);
-              existingDeparture.coaches.push(coachInfo);
+              if (!isWheelchairSeat) {
+                const coachInfo = {
+                  coachName: `Vagon ${car.name}`,
+                  availableSeats: totalAvailability,
+                  trainNumber: train.number,
+                  departureTime: departureTime
+                };
+                
+                coaches.push(coachInfo);
+                existingDeparture.coaches.push(coachInfo);
+              }
             }
           }
         } else {
@@ -73,15 +92,24 @@ export function parseSeatAvailability(response: TCDDResponse): ParsedAvailabilit
             }, 0);
             
             if (totalAvailability > 0) {
-              const coachInfo = {
-                coachName: `Vagon ${car.name}`,
-                availableSeats: totalAvailability,
-                trainNumber: train.number,
-                departureTime: departureTime
-              };
+              // Tekerlekli sandalye koltuklarını filtrele
+              const isWheelchairSeat = car.availabilities.some(availability => 
+                availability.cabinClass?.name?.toLowerCase().includes('tekerlekli') ||
+                availability.cabinClass?.name?.toLowerCase().includes('wheelchair') ||
+                availability.cabinClass?.code?.toLowerCase().includes('wheelchair')
+              );
               
-              coaches.push(coachInfo);
-              trainCoaches.push(coachInfo);
+              if (!isWheelchairSeat) {
+                const coachInfo = {
+                  coachName: `Vagon ${car.name}`,
+                  availableSeats: totalAvailability,
+                  trainNumber: train.number,
+                  departureTime: departureTime
+                };
+                
+                coaches.push(coachInfo);
+                trainCoaches.push(coachInfo);
+              }
             }
           }
           
@@ -99,8 +127,6 @@ export function parseSeatAvailability(response: TCDDResponse): ParsedAvailabilit
   
   // Map'i array'e çevir
   const departures = Array.from(departuresMap.values());
-  
-  console.log(`[${new Date().toISOString()}] Parsed ${departures.length} unique departures:`, departures.map(d => `${d.trainNumber}-${d.departureTime}`));
 
   return {
     trainNumber: response.trainLegs[0]?.trainAvailabilities[0]?.trains[0]?.number || 'Unknown',
