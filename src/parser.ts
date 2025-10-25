@@ -5,6 +5,11 @@ export interface SeatAvailability {
   availableSeats: number;
   trainNumber: string;
   departureTime: string;
+  cabinClasses: Array<{
+    code: string;
+    name: string;
+    seats: number;
+  }>;
 }
 
 export interface ParsedAvailability {
@@ -69,11 +74,26 @@ export function parseSeatAvailability(response: TCDDResponse): ParsedAvailabilit
               );
               
               if (hasValidCabinClass) {
+                // Cabin class detaylarını topla
+                const cabinClassDetails: Array<{code: string, name: string, seats: number}> = [];
+                const validCabinClasses = ['C', 'L', 'Y1'];
+                
+                car.availabilities.forEach(availability => {
+                  if (validCabinClasses.includes(availability.cabinClass?.code || '') && availability.availability > 0) {
+                    cabinClassDetails.push({
+                      code: availability.cabinClass?.code || '',
+                      name: availability.cabinClass?.name || '',
+                      seats: availability.availability
+                    });
+                  }
+                });
+                
                 const coachInfo = {
                   coachName: `Vagon ${car.name}`,
                   availableSeats: totalAvailability,
                   trainNumber: train.number,
-                  departureTime: departureTime
+                  departureTime: departureTime,
+                  cabinClasses: cabinClassDetails
                 };
                 
                 coaches.push(coachInfo);
@@ -98,11 +118,26 @@ export function parseSeatAvailability(response: TCDDResponse): ParsedAvailabilit
               );
               
               if (hasValidCabinClass) {
+                // Cabin class detaylarını topla
+                const cabinClassDetails: Array<{code: string, name: string, seats: number}> = [];
+                const validCabinClasses = ['C', 'L', 'Y1'];
+                
+                car.availabilities.forEach(availability => {
+                  if (validCabinClasses.includes(availability.cabinClass?.code || '') && availability.availability > 0) {
+                    cabinClassDetails.push({
+                      code: availability.cabinClass?.code || '',
+                      name: availability.cabinClass?.name || '',
+                      seats: availability.availability
+                    });
+                  }
+                });
+                
                 const coachInfo = {
                   coachName: `Vagon ${car.name}`,
                   availableSeats: totalAvailability,
                   trainNumber: train.number,
-                  departureTime: departureTime
+                  departureTime: departureTime,
+                  cabinClasses: cabinClassDetails
                 };
                 
                 coaches.push(coachInfo);

@@ -56,6 +56,14 @@ function buildNotificationMessage(
       departure.coaches.forEach(coach => {
         const escapedCoachName = escapeMarkdown(coach.coachName);
         message += `  • ${escapedCoachName}: ${coach.availableSeats} koltuk\n`;
+        
+        // Cabin class detaylarını göster
+        if (coach.cabinClasses && coach.cabinClasses.length > 0) {
+          coach.cabinClasses.forEach(cabinClass => {
+            const escapedCabinName = escapeMarkdown(cabinClass.name);
+            message += `    - ${escapedCabinName} (${cabinClass.code}): ${cabinClass.seats} koltuk\n`;
+          });
+        }
       });
       
       message += `\n`;
