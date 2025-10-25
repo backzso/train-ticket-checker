@@ -78,7 +78,7 @@ export function parseSeatAvailability(response: TCDDResponse): ParsedAvailabilit
               // Sadece C, L, Y1 cabin class'larını dikkate al
               const validCabinClasses = ['C', 'L', 'Y1'];
               const hasValidCabinClass = car.availabilities.some(availability => 
-                validCabinClasses.includes(availability.cabinClass?.code || '')
+                availability.cabinClass?.code && validCabinClasses.includes(availability.cabinClass.code)
               );
               
               if (hasValidCabinClass) {
@@ -87,7 +87,7 @@ export function parseSeatAvailability(response: TCDDResponse): ParsedAvailabilit
                 const validCabinClasses = ['C', 'L', 'Y1'];
                 
                 car.availabilities.forEach(availability => {
-                  if (validCabinClasses.includes(availability.cabinClass?.code || '') && availability.availability > 0) {
+                  if (availability.cabinClass?.code && validCabinClasses.includes(availability.cabinClass.code) && availability.availability > 0) {
                     cabinClassDetails.push({
                       code: availability.cabinClass?.code || '',
                       name: availability.cabinClass?.name || '',
@@ -122,7 +122,7 @@ export function parseSeatAvailability(response: TCDDResponse): ParsedAvailabilit
               // Sadece C, L, Y1 cabin class'larını dikkate al
               const validCabinClasses = ['C', 'L', 'Y1'];
               const hasValidCabinClass = car.availabilities.some(availability => 
-                validCabinClasses.includes(availability.cabinClass?.code || '')
+                availability.cabinClass?.code && validCabinClasses.includes(availability.cabinClass.code)
               );
               
               if (hasValidCabinClass) {
@@ -131,7 +131,7 @@ export function parseSeatAvailability(response: TCDDResponse): ParsedAvailabilit
                 const validCabinClasses = ['C', 'L', 'Y1'];
                 
                 car.availabilities.forEach(availability => {
-                  if (validCabinClasses.includes(availability.cabinClass?.code || '') && availability.availability > 0) {
+                  if (availability.cabinClass?.code && validCabinClasses.includes(availability.cabinClass.code) && availability.availability > 0) {
                     cabinClassDetails.push({
                       code: availability.cabinClass?.code || '',
                       name: availability.cabinClass?.name || '',
@@ -177,27 +177,4 @@ export function parseSeatAvailability(response: TCDDResponse): ParsedAvailabilit
     hasAvailableSeats: coaches.length > 0,
     departures
   };
-}
-
-export function findNewlyAvailableSeats(
-  current: ParsedAvailability,
-  previous: ParsedAvailability | null
-): SeatAvailability[] {
-  if (!previous) {
-    return current.coaches.filter(coach => coach.availableSeats > 0);
-  }
-
-  const newlyAvailable: SeatAvailability[] = [];
-
-  for (const currentCoach of current.coaches) {
-    const previousCoach = previous.coaches.find(
-      coach => coach.coachName === currentCoach.coachName
-    );
-
-    if ((!previousCoach || previousCoach.availableSeats === 0) && currentCoach.availableSeats > 0) {
-      newlyAvailable.push(currentCoach);
-    }
-  }
-
-  return newlyAvailable;
 }
