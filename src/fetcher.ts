@@ -11,6 +11,10 @@ export interface TCDDResponse {
         name: string;
         commercialName: string;
         type: string;
+        segments?: Array<{
+          id: number;
+          departureTime: number;
+        }>;
         cars: Array<{
           id: number;
           name: string;
