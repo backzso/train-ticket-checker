@@ -83,6 +83,12 @@ export function generateDateRange(config: Config): string[] {
 }
 
 export function formatDateForTCDD(dateStr: string, timeStr: string = '21:00:00'): string {
+  // Eğer zaten dd-MM-yyyy formatındaysa, olduğu gibi döndür
+  if (dateStr.includes('-') && dateStr.split('-')[0].length === 2) {
+    return `${dateStr} ${timeStr}`;
+  }
+  
+  // Eğer yyyy-MM-dd formatındaysa, dd-MM-yyyy'ye çevir
   const [year, month, day] = dateStr.split('-');
   return `${day}-${month}-${year} ${timeStr}`;
 }
