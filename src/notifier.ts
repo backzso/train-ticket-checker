@@ -39,7 +39,7 @@ function buildNotificationMessage(
   const escapedDepartureStation = escapeMarkdown(config.departureStationName);
   const escapedArrivalStation = escapeMarkdown(config.arrivalStationName);
 
-  let message = `🚨 *Boş Koltuk Bulundu\\!*\n\n`;
+  let message = `🚨 *Boş Koltuk Bulundu!*\n\n`;
   message += `*Tarih:* ${escapedDate}\n`;
   message += `*Güzergah:* ${escapedDepartureStation} → ${escapedArrivalStation}\n\n`;
 
@@ -50,7 +50,7 @@ function buildNotificationMessage(
       const escapedTrainNumber = escapeMarkdown(departure.trainNumber);
       const escapedTime = escapeMarkdown(departure.departureTime);
       
-      message += `*${index + 1}\\. Tren ${escapedTrainNumber} \\- ${escapedTime}*\n`;
+      message += `*${index + 1}. Tren ${escapedTrainNumber} - ${escapedTime}*\n`;
       
       // Bu seferdeki vagonları listele
       departure.coaches.forEach(coach => {
@@ -60,6 +60,10 @@ function buildNotificationMessage(
       
       message += `\n`;
     });
+    
+    // TCDD bilet satın alma linkini ekle
+    const bookingUrl = `https://ebilet.tcddtasimacilik.gov.tr/tr/tren-seferleri?from=${config.departureStationId}&to=${config.arrivalStationId}&date=${availability.date}`;
+    message += `*Bilet Satın Al:* [TCDD E-Bilet](${bookingUrl})\n`;
   } else {
     // Fallback: Eski format
     if (newlyAvailableSeats.length === 1) {
