@@ -25,7 +25,7 @@ export interface ParsedAvailability {
   }>;
 }
 
-export function parseSeatAvailability(response: TCDDResponse): ParsedAvailability {
+export function parseSeatAvailability(response: TCDDResponse, dateStr?: string): ParsedAvailability {
   const coaches: SeatAvailability[] = [];
   const departuresMap = new Map<string, {
     trainNumber: string;
@@ -171,7 +171,7 @@ export function parseSeatAvailability(response: TCDDResponse): ParsedAvailabilit
 
   return {
     trainNumber: response.trainLegs[0]?.trainAvailabilities[0]?.trains[0]?.number || 'Unknown',
-    date: new Date().toISOString().split('T')[0],
+    date: dateStr || new Date().toISOString().split('T')[0],
     route: response.trainLegs[0]?.trainAvailabilities[0]?.trains[0]?.name || 'Unknown',
     coaches,
     hasAvailableSeats: coaches.length > 0,

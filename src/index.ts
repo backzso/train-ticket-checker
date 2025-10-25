@@ -25,8 +25,7 @@ async function main(): Promise<void> {
       const results = await fetchSeatAvailabilityForMultipleDates(config, datesToCheck);
       
       for (const { date, response } of results) {
-        const currentAvailability = parseSeatAvailability(response);
-        currentAvailability.date = date;
+        const currentAvailability = parseSeatAvailability(response, date);
         
         if (currentAvailability.coaches.length > 0) {
           console.log(`[${new Date().toISOString()}] Found ${currentAvailability.coaches.length} available coaches for date ${date}!`);
@@ -36,7 +35,7 @@ async function main(): Promise<void> {
       }
     } else {
       const response = await fetchSeatAvailabilityForDate(config, datesToCheck[0]);
-      const currentAvailability = parseSeatAvailability(response);
+      const currentAvailability = parseSeatAvailability(response, datesToCheck[0]);
       
       if (currentAvailability.coaches.length > 0) {
         console.log(`[${new Date().toISOString()}] Found ${currentAvailability.coaches.length} available coaches!`);
