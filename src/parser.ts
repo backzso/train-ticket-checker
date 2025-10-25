@@ -160,6 +160,9 @@ export function parseSeatAvailability(response: TCDDResponse): ParsedAvailabilit
   
   // Map'i array'e çevir
   const departures = Array.from(departuresMap.values());
+  
+  console.log(`[${new Date().toISOString()}] Found ${departures.length} departures with valid cabin classes`);
+  console.log(`[${new Date().toISOString()}] Total coaches: ${coaches.length}`);
 
   return {
     trainNumber: response.trainLegs[0]?.trainAvailabilities[0]?.trains[0]?.number || 'Unknown',
