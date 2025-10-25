@@ -1,4 +1,4 @@
-name: Check TCDD Seats
+name: Check Train Seats
 
 on:
   schedule:
@@ -40,10 +40,7 @@ jobs:
           CHECK_START: ${{ secrets.CHECK_START }}
           CHECK_END: ${{ secrets.CHECK_END }}
           POLL_INTERVAL_MINUTES: ${{ secrets.POLL_INTERVAL_MINUTES }}
-          # Optional: Date range configuration
           CHECK_MULTIPLE_DATES: ${{ secrets.CHECK_MULTIPLE_DATES }}
           MAX_DAYS_TO_CHECK: ${{ secrets.MAX_DAYS_TO_CHECK }}
-          DATE_RANGE_START: ${{ secrets.DATE_RANGE_START }}
-          DATE_RANGE_END: ${{ secrets.DATE_RANGE_END }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
