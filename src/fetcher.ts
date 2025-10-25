@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { Config, formatDateForTCDD } from './config';
 import { refreshTokenIfNeeded } from './auth';
 
@@ -59,36 +60,35 @@ export async function fetchSeatAvailabilityForDate(config: Config, dateStr: stri
     };
 
 
-    const response = await fetch(config.tcddEndpoint, {
-      method: 'POST',
+    const response = await axios.post(config.tcddEndpoint, requestBody, {
       headers: {
-        'accept': 'application/json, text/plain, */*',
-        'accept-language': 'tr',
-        'authorization': authToken,
-        'content-type': 'application/json',
-        'sec-ch-ua': '"Brave";v="141", "Not?A_Brand";v="8", "Chromium";v="141"',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'tr',
+        'Authorization': authToken,
+        'Connection': 'keep-alive',
+        'Content-Type': 'application/json',
+        'Origin': 'https://ebilet.tcddtasimacilik.gov.tr',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-site',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36',
+        'sec-ch-ua': '"Google Chrome";v="141", "Not?A_Brand";v="8", "Chromium";v="141"',
         'sec-ch-ua-mobile': '?0',
         'sec-ch-ua-platform': '"macOS"',
-        'sec-fetch-dest': 'empty',
-        'sec-fetch-mode': 'cors',
-        'sec-fetch-site': 'same-site',
-        'sec-gpc': '1',
         'unit-id': config.unitId
-      },
-      body: JSON.stringify(requestBody)
+      }
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const data = await response.json() as TCDDResponse;
     console.log(`[${new Date().toISOString()}] Successfully fetched data for date ${dateStr}`);
-    
-    return data;
+    return response.data;
   } catch (error) {
-    console.error(`[${new Date().toISOString()}] Error fetching seat availability for date ${dateStr}:`, error);
-    throw error;
+    if (axios.isAxiosError(error)) {
+      console.error(`[${new Date().toISOString()}] Error fetching seat availability for date ${dateStr}:`, error.response?.status, error.response?.statusText);
+      throw new Error(`HTTP ${error.response?.status}: ${error.response?.statusText}`);
+    } else {
+      console.error(`[${new Date().toISOString()}] Error fetching seat availability for date ${dateStr}:`, error);
+      throw error;
+    }
   }
 }
 
