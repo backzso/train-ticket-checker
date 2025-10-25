@@ -61,7 +61,7 @@ function buildNotificationMessage(
         if (coach.cabinClasses && coach.cabinClasses.length > 0) {
           coach.cabinClasses.forEach(cabinClass => {
             const escapedCabinName = escapeMarkdown(cabinClass.name);
-            message += `    - ${escapedCabinName} (${cabinClass.code}): ${cabinClass.seats} koltuk\n`;
+            message += `    - ${escapedCabinName}: ${cabinClass.seats} koltuk\n`;
           });
         }
       });

@@ -1,7 +1,6 @@
 import { loadConfig, isWithinCheckHours, generateDateRange } from './config';
 import { fetchSeatAvailabilityForDate, fetchSeatAvailabilityForMultipleDates } from './fetcher';
-import { parseSeatAvailability, findNewlyAvailableSeats } from './parser';
-import { loadState, saveState } from './state';
+import { parseSeatAvailability } from './parser';
 import { sendTelegramNotification } from './notifier';
 
 async function main(): Promise<void> {
@@ -17,7 +16,6 @@ async function main(): Promise<void> {
       return;
     }
     
-    const state = await loadState();
     const datesToCheck = generateDateRange(config);
     console.log(`[${new Date().toISOString()}] Checking ${datesToCheck.length} dates: ${datesToCheck.join(', ')}`);
     
@@ -30,11 +28,9 @@ async function main(): Promise<void> {
         const currentAvailability = parseSeatAvailability(response);
         currentAvailability.date = date;
         
-        const newlyAvailableSeats = findNewlyAvailableSeats(currentAvailability, state.lastAvailability);
-        
-        if (newlyAvailableSeats.length > 0) {
-          console.log(`[${new Date().toISOString()}] Found ${newlyAvailableSeats.length} newly available coaches for date ${date}!`);
-          await sendTelegramNotification(config, currentAvailability, newlyAvailableSeats);
+        if (currentAvailability.coaches.length > 0) {
+          console.log(`[${new Date().toISOString()}] Found ${currentAvailability.coaches.length} available coaches for date ${date}!`);
+          await sendTelegramNotification(config, currentAvailability, currentAvailability.coaches);
           foundAnySeats = true;
         }
       }
@@ -42,19 +38,15 @@ async function main(): Promise<void> {
       const response = await fetchSeatAvailabilityForDate(config, datesToCheck[0]);
       const currentAvailability = parseSeatAvailability(response);
       
-      const newlyAvailableSeats = findNewlyAvailableSeats(currentAvailability, state.lastAvailability);
-      
-      if (newlyAvailableSeats.length > 0) {
-        console.log(`[${new Date().toISOString()}] Found ${newlyAvailableSeats.length} newly available coaches!`);
-        await sendTelegramNotification(config, currentAvailability, newlyAvailableSeats);
+      if (currentAvailability.coaches.length > 0) {
+        console.log(`[${new Date().toISOString()}] Found ${currentAvailability.coaches.length} available coaches!`);
+        await sendTelegramNotification(config, currentAvailability, currentAvailability.coaches);
         foundAnySeats = true;
       }
-      
-      await saveState(currentAvailability);
     }
     
     if (!foundAnySeats) {
-      console.log(`[${new Date().toISOString()}] No newly available seats found for any date`);
+      console.log(`[${new Date().toISOString()}] No available seats found for any date`);
     }
     
     console.log(`[${new Date().toISOString()}] Check completed successfully`);

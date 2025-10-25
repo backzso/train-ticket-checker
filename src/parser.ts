@@ -48,9 +48,17 @@ export function parseSeatAvailability(response: TCDDResponse): ParsedAvailabilit
           departureTime = date.toTimeString().slice(0, 5); // HH:MM format
         }
         
-        // Bugün ise geçmiş saatleri filtrele
-        const responseDate = new Date().toISOString().split('T')[0];
-        if (responseDate === today && departureTime < currentTime) {
+        // Sadece bugün için geçmiş saatleri filtrele (gelecek tarihler için filtre yok)
+        const today = new Date().toISOString().split('T')[0];
+        let departureDate = today;
+        
+        if (train.segments && train.segments.length > 0 && train.segments[0].departureTime) {
+          const timestamp = train.segments[0].departureTime;
+          departureDate = new Date(timestamp).toISOString().split('T')[0];
+        }
+        
+        // Sadece bugün için geçmiş saatleri filtrele
+        if (departureDate === today && departureTime < currentTime) {
           continue; // Geçmiş saatleri atla
         }
         
@@ -160,9 +168,6 @@ export function parseSeatAvailability(response: TCDDResponse): ParsedAvailabilit
   
   // Map'i array'e çevir
   const departures = Array.from(departuresMap.values());
-  
-  console.log(`[${new Date().toISOString()}] Found ${departures.length} departures with valid cabin classes`);
-  console.log(`[${new Date().toISOString()}] Total coaches: ${coaches.length}`);
 
   return {
     trainNumber: response.trainLegs[0]?.trainAvailabilities[0]?.trains[0]?.number || 'Unknown',
