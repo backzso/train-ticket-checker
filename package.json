@@ -1,7 +1,7 @@
 {
-  "name": "tcdd-ticket-checker",
+  "name": "train-ticket-checker",
   "version": "1.0.0",
-  "description": "TCDD seat availability checker with Telegram notifications",
+  "description": "Train seat availability checker with Telegram notifications",
   "main": "dist/index.js",
   "scripts": {
     "start": "node dist/index.js",
@@ -9,11 +9,12 @@
     "dev": "tsc && node dist/index.js"
   },
   "keywords": [
-    "tcdd",
+    "train",
     "ticket",
     "checker",
     "telegram",
-    "notifications"
+    "notifications",
+    "automation"
   ],
   "author": "",
   "license": "MIT",

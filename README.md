@@ -1,6 +1,6 @@
-# TCDD Ticket Checker
+# Train Ticket Checker
 
-A Node.js application that automatically checks TCDD (Turkish State Railways) seat availability and sends Telegram notifications when seats become available.
+A Node.js application that automatically checks train seat availability and sends Telegram notifications when seats become available.
 
 ## Features
 
@@ -18,7 +18,7 @@ A Node.js application that automatically checks TCDD (Turkish State Railways) se
 
 ```bash
 git clone <your-repo-url>
-cd tcddticketchecker
+cd train-ticket-checker
 npm install
 ```
 
@@ -33,16 +33,16 @@ cp env.example .env
 Edit `.env` with your configuration:
 
 ```env
-# TCDD API Configuration
-TCDD_ENDPOINT=https://web-api-prod-ytp.tcddtasimacilik.gov.tr/tms/train/train-availability?environment=dev&userId=1
+# Train API Configuration
+TRAIN_ENDPOINT=https://web-api-prod-ytp.tcddtasimacilik.gov.tr/tms/train/train-availability?environment=dev&userId=1
 DEPARTURE_STATION_ID=1323
 DEPARTURE_STATION_NAME=İSTANBUL(BOSTANCI)
 ARRIVAL_STATION_ID=98
 ARRIVAL_STATION_NAME=ANKARA GAR
 DEPARTURE_DATE=27-10-2025 21:00:00
 
-# TCDD Authentication
-TCDD_AUTH_TOKEN=your_tcdd_auth_token_here
+# Train Authentication
+TRAIN_AUTH_TOKEN=your_train_auth_token_here
 UNIT_ID=3895
 
 # Time Configuration (24-hour format)
@@ -55,9 +55,9 @@ TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
 TELEGRAM_CHAT_ID=your_telegram_chat_id_here
 ```
 
-### 3. Get TCDD Authentication Token
+### 3. Get Train Authentication Token
 
-**IMPORTANT**: You need to get a fresh TCDD authentication token from the browser:
+**IMPORTANT**: You need to get a fresh train authentication token from the browser:
 
 1. Go to [https://ebilet.tcddtasimacilik.gov.tr](https://ebilet.tcddtasimacilik.gov.tr)
 2. Open Developer Tools (F12)
