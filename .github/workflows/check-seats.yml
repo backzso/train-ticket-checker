@@ -1,0 +1,49 @@
+name: Check TCDD Seats
+
+on:
+  schedule:
+    # Run every 15 minutes
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm install
+        
+      - name: Build application
+        run: npm run build
+        
+      - name: Check seat availability
+        run: node dist/index.js
+        env:
+          TCDD_ENDPOINT: ${{ secrets.TCDD_ENDPOINT }}
+          DEPARTURE_STATION_ID: ${{ secrets.DEPARTURE_STATION_ID }}
+          DEPARTURE_STATION_NAME: ${{ secrets.DEPARTURE_STATION_NAME }}
+          ARRIVAL_STATION_ID: ${{ secrets.ARRIVAL_STATION_ID }}
+          ARRIVAL_STATION_NAME: ${{ secrets.ARRIVAL_STATION_NAME }}
+          DEPARTURE_DATE: ${{ secrets.DEPARTURE_DATE }}
+          TCDD_AUTH_TOKEN: ${{ secrets.TCDD_AUTH_TOKEN }}
+          UNIT_ID: ${{ secrets.UNIT_ID }}
+          CHECK_START: ${{ secrets.CHECK_START }}
+          CHECK_END: ${{ secrets.CHECK_END }}
+          POLL_INTERVAL_MINUTES: ${{ secrets.POLL_INTERVAL_MINUTES }}
+          # Optional: Date range configuration
+          CHECK_MULTIPLE_DATES: ${{ secrets.CHECK_MULTIPLE_DATES }}
+          MAX_DAYS_TO_CHECK: ${{ secrets.MAX_DAYS_TO_CHECK }}
+          DATE_RANGE_START: ${{ secrets.DATE_RANGE_START }}
+          DATE_RANGE_END: ${{ secrets.DATE_RANGE_END }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
