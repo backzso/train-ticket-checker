@@ -19,6 +19,10 @@ async function main(): Promise<void> {
     const datesToCheck = generateDateRange(config);
     console.log(`[${new Date().toISOString()}] Checking ${datesToCheck.length} dates: ${datesToCheck.join(', ')}`);
     
+    // Check if notifications should be sent
+    const sendNotifications = process.env.SEND_NOTIFICATIONS === 'true';
+    console.log(`[${new Date().toISOString()}] Send notifications: ${sendNotifications}`);
+    
     let foundAnySeats = false;
     
     if (config.checkMultipleDates && datesToCheck.length > 1) {
@@ -29,7 +33,10 @@ async function main(): Promise<void> {
         
         if (currentAvailability.coaches.length > 0) {
           console.log(`[${new Date().toISOString()}] Found ${currentAvailability.coaches.length} available coaches for date ${date}!`);
-          await sendTelegramNotification(config, currentAvailability, currentAvailability.coaches);
+          
+          if (sendNotifications) {
+            await sendTelegramNotification(config, currentAvailability, currentAvailability.coaches);
+          }
           foundAnySeats = true;
         }
       }
@@ -39,7 +46,10 @@ async function main(): Promise<void> {
       
       if (currentAvailability.coaches.length > 0) {
         console.log(`[${new Date().toISOString()}] Found ${currentAvailability.coaches.length} available coaches!`);
-        await sendTelegramNotification(config, currentAvailability, currentAvailability.coaches);
+        
+        if (sendNotifications) {
+          await sendTelegramNotification(config, currentAvailability, currentAvailability.coaches);
+        }
         foundAnySeats = true;
       }
     }
@@ -58,7 +68,6 @@ async function main(): Promise<void> {
 
 async function runContinuous(): Promise<void> {
   const config = loadConfig();
-  
   console.log(`[${new Date().toISOString()}] Starting continuous mode with ${config.pollIntervalMinutes} minute intervals`);
   console.log(`[${new Date().toISOString()}] Check hours: ${config.checkStart} - ${config.checkEnd}`);
   
