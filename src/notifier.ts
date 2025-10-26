@@ -77,11 +77,11 @@ function buildNotificationMessage(
     if (newlyAvailableSeats.length === 1) {
       const coach = newlyAvailableSeats[0];
       message += `*Vagon:* ${escapeMarkdown(coach.coachName)}\n`;
-      message += `*Tren:* ${coach.trainNumber} - ${coach.departureTime}`;
+      message += `*Boş Koltuk:* ${coach.availableSeats}`;
     } else {
       message += `*Yeni Boş Koltuklar:*\n`;
       newlyAvailableSeats.forEach(coach => {
-        message += `• *${escapeMarkdown(coach.coachName)}:* ${coach.trainNumber} - ${coach.departureTime}\n`;
+        message += `• *${escapeMarkdown(coach.coachName)}:* ${coach.availableSeats} koltuk\n`;
       });
     }
   }

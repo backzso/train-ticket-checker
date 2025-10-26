@@ -2,8 +2,8 @@ name: Check Train Seats
 
 on:
   schedule:
-    # Run every 5 minutes
-    - cron: '*/5 * * * *'
+    # Run once daily at 9:00 AM UTC
+    - cron: '0 9 * * *'
   workflow_dispatch:
 
 jobs:
