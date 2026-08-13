@@ -1,4 +1,8 @@
 import { TCDDResponse } from './fetcher';
+import { localDate, localTime } from './config';
+
+/** Bildirimlerde gösterilecek kabin sınıfları. */
+const VALID_CABIN_CLASSES = ['C', 'L', 'Y1'];
 
 export interface SeatAvailability {
   coachName: string;
@@ -12,167 +16,103 @@ export interface SeatAvailability {
   }>;
 }
 
+export interface Departure {
+  trainNumber: string;
+  departureTime: string;
+  coaches: SeatAvailability[];
+}
+
 export interface ParsedAvailability {
   trainNumber: string;
   date: string;
   route: string;
   coaches: SeatAvailability[];
   hasAvailableSeats: boolean;
-  departures: Array<{
-    trainNumber: string;
-    departureTime: string;
-    coaches: SeatAvailability[];
-  }>;
+  departures: Departure[];
+}
+
+type TrainCar = TCDDResponse['trainLegs'][number]['trainAvailabilities'][number]['trains'][number]['cars'][number];
+
+/**
+ * Bir vagonu, geçerli kabin sınıflarında boş koltuğu varsa
+ * bildirime uygun biçime dönüştürür. Uygun değilse null döner.
+ */
+function parseCar(car: TrainCar, trainNumber: string, departureTime: string): SeatAvailability | null {
+  const cabinClasses = car.availabilities
+    .filter(a => a.cabinClass?.code && VALID_CABIN_CLASSES.includes(a.cabinClass.code) && a.availability > 0)
+    .map(a => ({
+      code: a.cabinClass.code,
+      name: a.cabinClass.name,
+      seats: a.availability
+    }));
+
+  if (cabinClasses.length === 0) return null;
+
+  return {
+    coachName: `Vagon ${car.name}`,
+    availableSeats: cabinClasses.reduce((sum, c) => sum + c.seats, 0),
+    trainNumber,
+    departureTime,
+    cabinClasses
+  };
 }
 
 export function parseSeatAvailability(response: TCDDResponse, dateStr?: string): ParsedAvailability {
   const coaches: SeatAvailability[] = [];
-  const departuresMap = new Map<string, {
-    trainNumber: string;
-    departureTime: string;
-    coaches: SeatAvailability[];
-  }>();
-  
-  // Bugünün tarihini al
-  const today = new Date().toISOString().split('T')[0];
-  const currentTime = new Date().toTimeString().slice(0, 5); // HH:MM format
-  
-  for (const trainLeg of response.trainLegs) {
-    for (const trainAvailability of trainLeg.trainAvailabilities) {
-      for (const train of trainAvailability.trains) {
-        // Departure time'ı timestamp'ten parse et
-        let departureTime = '21:00';
-        if (train.segments && train.segments.length > 0 && train.segments[0].departureTime) {
-          const timestamp = train.segments[0].departureTime;
-          const date = new Date(timestamp);
-          departureTime = date.toTimeString().slice(0, 5); // HH:MM format
-        }
-        
-        // Sadece bugün için geçmiş saatleri filtrele (gelecek tarihler için filtre yok)
-        const today = new Date().toISOString().split('T')[0];
-        let departureDate = today;
-        
-        if (train.segments && train.segments.length > 0 && train.segments[0].departureTime) {
-          const timestamp = train.segments[0].departureTime;
-          departureDate = new Date(timestamp).toISOString().split('T')[0];
-        }
-        
-        // Sadece bugün için geçmiş saatleri filtrele
+  const departuresMap = new Map<string, Departure>();
+
+  const today = localDate();
+  const currentTime = localTime();
+
+  for (const trainLeg of response.trainLegs ?? []) {
+    for (const trainAvailability of trainLeg.trainAvailabilities ?? []) {
+      for (const train of trainAvailability.trains ?? []) {
+        const timestamp = train.segments?.[0]?.departureTime;
+
+        // Kalkış zamanı bilinmiyorsa tren atlanır — geçmiş sefer filtresi
+        // uydurma bir saate göre çalışmasın.
+        if (!timestamp) continue;
+
+        const departureDateTime = new Date(timestamp);
+        const departureTime = localTime(departureDateTime);
+        const departureDate = localDate(departureDateTime);
+
+        // Sadece bugünün geçmiş seferlerini ele; gelecek tarihler dokunulmaz.
         if (departureDate === today && departureTime < currentTime) {
-          continue; // Geçmiş saatleri atla
+          continue;
         }
-        
-        // Tren için unique key oluştur (trainNumber + departureTime)
+
         const trainKey = `${train.number}-${departureTime}`;
-        
-        // Eğer bu tren zaten departuresMap'te varsa, vagonları ekle
-        if (departuresMap.has(trainKey)) {
-          const existingDeparture = departuresMap.get(trainKey)!;
-          
-          for (const car of train.cars) {
-            const totalAvailability = car.availabilities.reduce((sum, availability) => {
-              return sum + availability.availability;
-            }, 0);
-            
-            if (totalAvailability > 0) {
-              // Sadece C, L, Y1 cabin class'larını dikkate al
-              const validCabinClasses = ['C', 'L', 'Y1'];
-              const hasValidCabinClass = car.availabilities.some(availability => 
-                availability.cabinClass?.code && validCabinClasses.includes(availability.cabinClass.code)
-              );
-              
-              if (hasValidCabinClass) {
-                // Cabin class detaylarını topla
-                const cabinClassDetails: Array<{code: string, name: string, seats: number}> = [];
-                const validCabinClasses = ['C', 'L', 'Y1'];
-                
-                car.availabilities.forEach(availability => {
-                  if (availability.cabinClass?.code && validCabinClasses.includes(availability.cabinClass.code) && availability.availability > 0) {
-                    cabinClassDetails.push({
-                      code: availability.cabinClass?.code || '',
-                      name: availability.cabinClass?.name || '',
-                      seats: availability.availability
-                    });
-                  }
-                });
-                
-                const coachInfo = {
-                  coachName: `Vagon ${car.name}`,
-                  availableSeats: totalAvailability,
-                  trainNumber: train.number,
-                  departureTime: departureTime,
-                  cabinClasses: cabinClassDetails
-                };
-                
-                coaches.push(coachInfo);
-                existingDeparture.coaches.push(coachInfo);
-              }
-            }
-          }
-        } else {
-          // Yeni tren, yeni departure oluştur
-          const trainCoaches: SeatAvailability[] = [];
-          
-          for (const car of train.cars) {
-            const totalAvailability = car.availabilities.reduce((sum, availability) => {
-              return sum + availability.availability;
-            }, 0);
-            
-            if (totalAvailability > 0) {
-              // Sadece C, L, Y1 cabin class'larını dikkate al
-              const validCabinClasses = ['C', 'L', 'Y1'];
-              const hasValidCabinClass = car.availabilities.some(availability => 
-                availability.cabinClass?.code && validCabinClasses.includes(availability.cabinClass.code)
-              );
-              
-              if (hasValidCabinClass) {
-                // Cabin class detaylarını topla
-                const cabinClassDetails: Array<{code: string, name: string, seats: number}> = [];
-                const validCabinClasses = ['C', 'L', 'Y1'];
-                
-                car.availabilities.forEach(availability => {
-                  if (availability.cabinClass?.code && validCabinClasses.includes(availability.cabinClass.code) && availability.availability > 0) {
-                    cabinClassDetails.push({
-                      code: availability.cabinClass?.code || '',
-                      name: availability.cabinClass?.name || '',
-                      seats: availability.availability
-                    });
-                  }
-                });
-                
-                const coachInfo = {
-                  coachName: `Vagon ${car.name}`,
-                  availableSeats: totalAvailability,
-                  trainNumber: train.number,
-                  departureTime: departureTime,
-                  cabinClasses: cabinClassDetails
-                };
-                
-                coaches.push(coachInfo);
-                trainCoaches.push(coachInfo);
-              }
-            }
-          }
-          
-          if (trainCoaches.length > 0) {
-            departuresMap.set(trainKey, {
-              trainNumber: train.number,
-              departureTime: departureTime,
-              coaches: trainCoaches
-            });
+        let departure = departuresMap.get(trainKey);
+
+        if (!departure) {
+          departure = { trainNumber: train.number, departureTime, coaches: [] };
+          departuresMap.set(trainKey, departure);
+        }
+
+        for (const car of train.cars ?? []) {
+          const coach = parseCar(car, train.number, departureTime);
+          if (coach) {
+            coaches.push(coach);
+            departure.coaches.push(coach);
           }
         }
       }
     }
   }
-  
-  // Map'i array'e çevir
-  const departures = Array.from(departuresMap.values());
+
+  // Boş koltuğu olmayan seferleri çıkar.
+  const departures = Array.from(departuresMap.values()).filter(d => d.coaches.length > 0);
+
+  // Seferleri kalkış saatine göre sırala.
+  departures.sort((a, b) => a.departureTime.localeCompare(b.departureTime));
+
+  const firstTrain = response.trainLegs?.[0]?.trainAvailabilities?.[0]?.trains?.[0];
 
   return {
-    trainNumber: response.trainLegs[0]?.trainAvailabilities[0]?.trains[0]?.number || 'Unknown',
-    date: dateStr || new Date().toISOString().split('T')[0],
-    route: response.trainLegs[0]?.trainAvailabilities[0]?.trains[0]?.name || 'Unknown',
+    trainNumber: firstTrain?.number || 'Unknown',
+    date: dateStr || today,
+    route: firstTrain?.name || 'Unknown',
     coaches,
     hasAvailableSeats: coaches.length > 0,
     departures

@@ -2,30 +2,39 @@ name: Check Train Seats
 
 on:
   schedule:
-    # Run once daily at 9:00 AM UTC
+    # Her gün 09:00 UTC (Türkiye saatiyle 12:00)
     - cron: '0 9 * * *'
   workflow_dispatch:
+
+# Aynı anda birden fazla kontrol çalışmasını engelle.
+concurrency:
+  group: check-seats
+  cancel-in-progress: false
 
 jobs:
   check:
     runs-on: ubuntu-latest
-    
+    timeout-minutes: 10
+
+    env:
+      TZ: Europe/Istanbul
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
-          
+
       - name: Install dependencies
-        run: npm install
-        
+        run: npm ci
+
       - name: Build application
         run: npm run build
-        
+
       - name: Check seat availability
         run: node dist/index.js
         env:

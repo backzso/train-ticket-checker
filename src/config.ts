@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 export interface Config {
-  tcddEndpoint: string;
+  trainEndpoint: string;
   departureStationId: number;
   departureStationName: string;
   arrivalStationId: number;
@@ -14,10 +14,22 @@ export interface Config {
   pollIntervalMinutes: number;
   telegramBotToken: string;
   telegramChatId: string;
-  tcddAuthToken: string;
+  trainAuthToken: string;
   unitId: string;
   checkMultipleDates: boolean;
   maxDaysToCheck: number;
+}
+
+/**
+ * Bir ortam değişkenini okur. Eski `TRAIN_*` adlarını da kabul eder,
+ * böylece eski .env dosyaları çalışmaya devam eder.
+ */
+function readEnv(name: string): string | undefined {
+  const value = process.env[name];
+  if (value) return value;
+
+  const legacyName = name.replace(/^TCDD_/, 'TRAIN_');
+  return legacyName !== name ? process.env[legacyName] : undefined;
 }
 
 export function loadConfig(): Config {
@@ -28,38 +40,74 @@ export function loadConfig(): Config {
     'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID', 'TCDD_AUTH_TOKEN', 'UNIT_ID'
   ];
 
-  const missingVars = requiredVars.filter(varName => !process.env[varName]);
+  const missingVars = requiredVars.filter(varName => !readEnv(varName));
   if (missingVars.length > 0) {
     throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
   }
 
-  const pollInterval = parseInt(process.env.POLL_INTERVAL_MINUTES!, 10);
+  const pollInterval = parseInt(readEnv('POLL_INTERVAL_MINUTES')!, 10);
   if (isNaN(pollInterval) || pollInterval < 1) {
     throw new Error('POLL_INTERVAL_MINUTES must be a positive number');
   }
 
+  const departureStationId = parseInt(readEnv('DEPARTURE_STATION_ID')!, 10);
+  const arrivalStationId = parseInt(readEnv('ARRIVAL_STATION_ID')!, 10);
+  if (isNaN(departureStationId) || isNaN(arrivalStationId)) {
+    throw new Error('DEPARTURE_STATION_ID and ARRIVAL_STATION_ID must be numbers');
+  }
+
+  const maxDaysToCheck = parseInt(readEnv('MAX_DAYS_TO_CHECK') || '7', 10);
+  if (isNaN(maxDaysToCheck) || maxDaysToCheck < 1) {
+    throw new Error('MAX_DAYS_TO_CHECK must be a positive number');
+  }
+
   return {
-    tcddEndpoint: process.env.TCDD_ENDPOINT!,
-    departureStationId: parseInt(process.env.DEPARTURE_STATION_ID!, 10),
-    departureStationName: process.env.DEPARTURE_STATION_NAME!,
-    arrivalStationId: parseInt(process.env.ARRIVAL_STATION_ID!, 10),
-    arrivalStationName: process.env.ARRIVAL_STATION_NAME!,
-    departureDate: process.env.DEPARTURE_DATE!,
-    checkStart: process.env.CHECK_START!,
-    checkEnd: process.env.CHECK_END!,
+    trainEndpoint: readEnv('TCDD_ENDPOINT')!,
+    departureStationId,
+    departureStationName: readEnv('DEPARTURE_STATION_NAME')!,
+    arrivalStationId,
+    arrivalStationName: readEnv('ARRIVAL_STATION_NAME')!,
+    departureDate: readEnv('DEPARTURE_DATE')!,
+    checkStart: readEnv('CHECK_START')!,
+    checkEnd: readEnv('CHECK_END')!,
     pollIntervalMinutes: pollInterval,
-    telegramBotToken: process.env.TELEGRAM_BOT_TOKEN!,
-    telegramChatId: process.env.TELEGRAM_CHAT_ID!,
-    tcddAuthToken: process.env.TCDD_AUTH_TOKEN!,
-    unitId: process.env.UNIT_ID!,
-    checkMultipleDates: process.env.CHECK_MULTIPLE_DATES === 'true',
-    maxDaysToCheck: parseInt(process.env.MAX_DAYS_TO_CHECK || '7', 10)
+    telegramBotToken: readEnv('TELEGRAM_BOT_TOKEN')!,
+    telegramChatId: readEnv('TELEGRAM_CHAT_ID')!,
+    trainAuthToken: readEnv('TCDD_AUTH_TOKEN')!,
+    unitId: readEnv('UNIT_ID')!,
+    checkMultipleDates: readEnv('CHECK_MULTIPLE_DATES') === 'true',
+    maxDaysToCheck
   };
 }
 
+/**
+ * Bildirimlerin gönderilip gönderilmeyeceğini belirler.
+ * Varsayılan AÇIK — sadece açıkça 'false' verilirse kapanır.
+ */
+export function shouldSendNotifications(): boolean {
+  return (process.env.SEND_NOTIFICATIONS || '').toLowerCase() !== 'false';
+}
+
+/** Tüm tarih/saat işlemleri bu saat dilimine göre yapılır. */
+export const TIMEZONE = process.env.TZ || 'Europe/Istanbul';
+
+/** Verilen anın Türkiye saatiyle HH:MM karşılığı. */
+export function localTime(date: Date = new Date()): string {
+  return date.toLocaleTimeString('en-GB', {
+    timeZone: TIMEZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+}
+
+/** Verilen anın Türkiye saatiyle YYYY-MM-DD karşılığı. */
+export function localDate(date: Date = new Date()): string {
+  return date.toLocaleDateString('en-CA', { timeZone: TIMEZONE });
+}
+
 export function isWithinCheckHours(config: Config): boolean {
-  const now = new Date();
-  const currentTime = now.toTimeString().slice(0, 5);
+  const currentTime = localTime();
   return currentTime >= config.checkStart && currentTime <= config.checkEnd;
 }
 
@@ -67,18 +115,16 @@ export function generateDateRange(config: Config): string[] {
   if (!config.checkMultipleDates) {
     return [config.departureDate];
   }
-  
+
   const dates: string[] = [];
   const startDate = new Date();
-  const endDate = new Date();
-  endDate.setDate(startDate.getDate() + config.maxDaysToCheck);
-  
-  const currentDate = new Date(startDate);
-  while (currentDate <= endDate) {
-    dates.push(currentDate.toISOString().split('T')[0]);
-    currentDate.setDate(currentDate.getDate() + 1);
+
+  for (let i = 0; i < config.maxDaysToCheck; i++) {
+    const date = new Date(startDate);
+    date.setDate(startDate.getDate() + i);
+    dates.push(localDate(date));
   }
-  
+
   return dates;
 }
 

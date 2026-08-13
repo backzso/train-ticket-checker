@@ -15,8 +15,13 @@ dist/
 .env.test.local
 .env.production.local
 
-# State file
+# State files
 state.json
+bot-state.json
+
+# API debug dumps
+tcddresponse.json
+tcddindexprod.js
 
 # IDE
 .vscode/
