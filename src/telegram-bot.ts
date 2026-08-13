@@ -1,9 +1,9 @@
 import { promises as fs } from 'fs';
 import path from 'path';
-import { Config, localDate } from './config';
-import { fetchSeatAvailabilityForDate } from './fetcher';
-import { parseSeatAvailability } from './parser';
-import { sendTelegramNotification, sendTelegramMessage } from './notifier';
+import { Config, localDate, localTime, generateDateRange } from './config';
+import { fetchSeatAvailabilityForDate, fetchSeatAvailabilityForMultipleDates } from './fetcher';
+import { parseSeatAvailability, Departure } from './parser';
+import { sendTelegramNotification, sendTelegramMessage, sendTelegramSetMyCommands } from './notifier';
 import { findStation, formatStationList, STATIONS } from './stations';
 
 const STATE_FILE = process.env.BOT_STATE_FILE || path.join(process.cwd(), 'bot-state.json');
@@ -23,9 +23,25 @@ export interface BotState {
   interval: number; // dakika
   lastCheck: string;
   chatId: string;
+  /** true ise bugünden itibaren `days` gün taranır; false ise sadece `date`. */
+  multiDate?: boolean;
+  /** Çoklu tarih modunda taranacak gün sayısı. */
+  days?: number;
+  /** Kontrolün yapılacağı saat aralığı (Türkiye saati, HH:MM). */
+  checkStart?: string;
+  checkEnd?: string;
   /** Daha önce bildirilen seferler: key -> bildirim zamanı (ms). */
   notified?: Record<string, number>;
 }
+
+/** Bir sohbetin varsayılan ayarları. */
+const DEFAULTS = {
+  interval: 15,
+  multiDate: false,
+  days: 7,
+  checkStart: '00:00',
+  checkEnd: '23:59'
+};
 
 export class TelegramBot {
   private botToken: string;
@@ -34,6 +50,35 @@ export class TelegramBot {
 
   constructor(botToken: string) {
     this.botToken = botToken;
+  }
+
+  /**
+   * Telegram'ın komut menüsünü ayarlar; kullanıcı `/` yazınca komutlar
+   * açıklamalarıyla listelenir. Başarısızlık kritik değildir.
+   */
+  async registerCommands(): Promise<void> {
+    const commands = [
+      { command: 'check', description: 'Otomatik kontrolü başlat' },
+      { command: 'now', description: 'Hemen bir kez kontrol et' },
+      { command: 'stop', description: 'Otomatik kontrolü durdur' },
+      { command: 'status', description: 'Mevcut ayarları göster' },
+      { command: 'setroute', description: 'Güzergah ayarla (örn: ankara istanbul)' },
+      { command: 'swap', description: 'Kalkış ↔ varış yönünü ters çevir' },
+      { command: 'setdate', description: 'Aranacak tarihi ayarla' },
+      { command: 'multi', description: 'Çoklu tarih modu (örn: 7 gün)' },
+      { command: 'stations', description: 'Desteklenen istasyonlar' },
+      { command: 'setinterval', description: 'Kontrol aralığı (dakika)' },
+      { command: 'settime', description: 'Bildirim saat aralığı' },
+      { command: 'reset', description: 'Ayarları varsayılana döndür' },
+      { command: 'help', description: 'Yardım ve komut listesi' }
+    ];
+
+    try {
+      await sendTelegramSetMyCommands(this.botToken, commands);
+      console.log(`[${new Date().toISOString()}] Telegram komut menüsü kuruldu (${commands.length} komut)`);
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] Komut menüsü kurulamadı:`, error);
+    }
   }
 
   /**
@@ -113,11 +158,23 @@ export class TelegramBot {
         case '/setroute':
           await this.handleSetRoute(chatId, args);
           break;
+        case '/swap':
+          await this.handleSwap(chatId);
+          break;
         case '/setdate':
           await this.handleSetDate(chatId, args);
           break;
         case '/setinterval':
           await this.handleSetInterval(chatId, args);
+          break;
+        case '/multi':
+          await this.handleMulti(chatId, args);
+          break;
+        case '/settime':
+          await this.handleSetTime(chatId, args);
+          break;
+        case '/reset':
+          await this.handleReset(chatId);
           break;
         default:
           await this.sendMessage(chatId, '❓ Bilinmeyen komut. /start yazarak yardım alabilirsiniz.');
@@ -130,17 +187,24 @@ export class TelegramBot {
 
   private async handleStart(chatId: string): Promise<void> {
     const message = `🚀 *TCDD Koltuk Kontrol Botu*\n\n` +
-      `*Komutlar:*\n` +
-      `• /check - Otomatik kontrolü başlat\n` +
-      `• /now - Hemen bir kez kontrol et\n` +
-      `• /stop - Kontrolü durdur\n` +
-      `• /status - Mevcut durumu göster\n` +
-      `• /stations - İstasyon listesi\n` +
-      `• /setroute ankara istanbul - Güzergah ayarla\n` +
-      `• /setdate 2025-12-30 - Tarih ayarla\n` +
-      `• /setinterval 15 - Kontrol aralığı (dakika)\n\n` +
-      `*Varsayılan:* ANKARA GAR → İSTANBUL(BOSTANCI), bugün, 15 dakika\n\n` +
-      `Başlamak için /check yazın!`;
+      `Belirlediğin güzergah ve tarihte boş koltuk çıkınca sana haber verir.\n\n` +
+      `🎮 *Kontrol*\n` +
+      `• /check — Otomatik kontrolü başlat (aralıklarla tarar)\n` +
+      `• /now — Beklemeden hemen bir kez kontrol et\n` +
+      `• /stop — Otomatik kontrolü durdur\n` +
+      `• /status — Mevcut ayarları ve son kontrolü göster\n\n` +
+      `🗺 *Güzergah & Tarih*\n` +
+      `• /setroute ankara istanbul — Güzergah ayarla\n` +
+      `• /swap — Kalkış ↔ varış yönünü ters çevir\n` +
+      `• /setdate 2025-12-30 — Aranacak tarihi ayarla\n` +
+      `• /multi 7 — Bugünden itibaren 7 gün tara (0 = kapat)\n` +
+      `• /stations — Desteklenen istasyonları listele\n\n` +
+      `⚙️ *Ayarlar*\n` +
+      `• /setinterval 15 — Kontrol aralığı (dakika)\n` +
+      `• /settime 08:00 22:00 — Sadece bu saatler arası bildir\n` +
+      `• /reset — Tüm ayarları varsayılana döndür\n\n` +
+      `_Varsayılan:_ ANKARA GAR → İSTANBUL(BOSTANCI), bugün, 15 dk\n\n` +
+      `Başlamak için /check yaz!`;
 
     await this.sendMessage(chatId, message);
   }
@@ -194,11 +258,17 @@ export class TelegramBot {
       ? new Date(state.lastCheck).toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' })
       : 'Henüz kontrol edilmedi';
 
+    const dateLine = state.multiDate
+      ? `Bugünden itibaren ${state.days ?? DEFAULTS.days} gün`
+      : state.date;
+    const timeLine = `${state.checkStart ?? DEFAULTS.checkStart} - ${state.checkEnd ?? DEFAULTS.checkEnd}`;
+
     await this.sendMessage(chatId, `📊 *Bot Durumu*\n\n` +
       `*Durum:* ${status}\n` +
       `*Güzergah:* ${state.route.departure} → ${state.route.arrival}\n` +
-      `*Tarih:* ${state.date}\n` +
+      `*Tarih:* ${dateLine}\n` +
       `*Aralık:* ${state.interval} dakika\n` +
+      `*Bildirim saatleri:* ${timeLine}\n` +
       `*Son Kontrol:* ${lastCheck}`);
   }
 
@@ -246,6 +316,23 @@ export class TelegramBot {
     await this.sendMessage(chatId, `✅ Güzergah ayarlandı: ${departure.name} → ${arrival.name}`);
   }
 
+  /** Kalkış ↔ varış istasyonlarını yer değiştirir. */
+  private async handleSwap(chatId: string): Promise<void> {
+    const state = this.getOrCreateState(chatId);
+    const { departure, arrival, departureId, arrivalId } = state.route;
+
+    state.route = {
+      departure: arrival,
+      arrival: departure,
+      departureId: arrivalId,
+      arrivalId: departureId
+    };
+    state.notified = {};
+    await this.persist();
+
+    await this.sendMessage(chatId, `🔄 Güzergah ters çevrildi: ${arrival} → ${departure}`);
+  }
+
   private async handleSetDate(chatId: string, args: string[]): Promise<void> {
     if (args.length < 1) {
       await this.sendMessage(chatId, '❌ Kullanım: `/setdate 2025-12-30` veya `/setdate 30-12-2025`');
@@ -265,6 +352,7 @@ export class TelegramBot {
 
     const state = this.getOrCreateState(chatId);
     state.date = normalized;
+    state.multiDate = false; // tek tarih seçildi, çoklu modu kapat
     state.notified = {};
     await this.persist();
 
@@ -291,6 +379,67 @@ export class TelegramBot {
     await this.sendMessage(chatId, `✅ Kontrol aralığı ayarlandı: ${interval} dakika`);
   }
 
+  /** Çoklu tarih modu: bugünden itibaren N gün tara. `0` kapatır. */
+  private async handleMulti(chatId: string, args: string[]): Promise<void> {
+    const days = parseInt(args[0], 10);
+
+    if (isNaN(days) || days < 0 || days > 30) {
+      await this.sendMessage(chatId, '❌ Kullanım: `/multi 7` (0-30 gün, 0 = kapat)');
+      return;
+    }
+
+    const state = this.getOrCreateState(chatId);
+
+    if (days === 0) {
+      state.multiDate = false;
+      state.notified = {};
+      await this.persist();
+      await this.sendMessage(chatId, `✅ Çoklu tarih modu kapatıldı. Tek tarih: ${state.date}`);
+      return;
+    }
+
+    state.multiDate = true;
+    state.days = days;
+    state.notified = {};
+    await this.persist();
+
+    await this.sendMessage(chatId, `✅ Çoklu tarih modu açık: bugünden itibaren ${days} gün taranacak.`);
+  }
+
+  /** Bildirim yapılacak saat aralığını ayarlar. */
+  private async handleSetTime(chatId: string, args: string[]): Promise<void> {
+    if (args.length < 2 || !isValidTime(args[0]) || !isValidTime(args[1])) {
+      await this.sendMessage(chatId, '❌ Kullanım: `/settime 08:00 22:00` (24 saat biçimi)');
+      return;
+    }
+
+    if (args[0] >= args[1]) {
+      await this.sendMessage(chatId, '❌ Başlangıç saati bitiş saatinden önce olmalı.');
+      return;
+    }
+
+    const state = this.getOrCreateState(chatId);
+    state.checkStart = args[0];
+    state.checkEnd = args[1];
+    await this.persist();
+
+    await this.sendMessage(chatId, `✅ Bildirim saatleri: ${args[0]} - ${args[1]}`);
+  }
+
+  /** Tüm ayarları varsayılana döndürür (aktif kontrolü de durdurur). */
+  private async handleReset(chatId: string): Promise<void> {
+    this.clearSchedule(chatId);
+    this.state.delete(chatId);
+    const state = this.getOrCreateState(chatId); // taze varsayılan
+    await this.persist();
+
+    await this.sendMessage(chatId,
+      `♻️ Ayarlar sıfırlandı.\n\n` +
+      `*Güzergah:* ${state.route.departure} → ${state.route.arrival}\n` +
+      `*Tarih:* ${state.date}\n` +
+      `*Aralık:* ${state.interval} dakika`);
+  }
+
   private getOrCreateState(chatId: string): BotState {
     let state = this.state.get(chatId);
 
@@ -307,9 +456,13 @@ export class TelegramBot {
           arrivalId: istanbul.id
         },
         date: localDate(),
-        interval: 15,
+        interval: DEFAULTS.interval,
         lastCheck: '',
         chatId,
+        multiDate: DEFAULTS.multiDate,
+        days: DEFAULTS.days,
+        checkStart: DEFAULTS.checkStart,
+        checkEnd: DEFAULTS.checkEnd,
         notified: {}
       };
       this.state.set(chatId, state);
@@ -349,6 +502,18 @@ export class TelegramBot {
     const state = this.state.get(chatId);
     if (!state) return false;
 
+    // Zamanlanmış kontroller saat aralığının dışındaysa atlanır.
+    // (/now ile gelen elle kontroller bu kısıttan muaftır.)
+    const start = state.checkStart ?? DEFAULTS.checkStart;
+    const end = state.checkEnd ?? DEFAULTS.checkEnd;
+    if (!options.announceEmpty) {
+      const now = localTime();
+      if (now < start || now > end) {
+        console.log(`[${new Date().toISOString()}] ${chatId}: ${now} bildirim saatleri (${start}-${end}) dışında, atlandı`);
+        return false;
+      }
+    }
+
     try {
       const config: Config = {
         trainEndpoint: process.env.TCDD_ENDPOINT || process.env.TRAIN_ENDPOINT || '',
@@ -357,35 +522,49 @@ export class TelegramBot {
         arrivalStationId: state.route.arrivalId,
         arrivalStationName: state.route.arrival,
         departureDate: state.date,
-        checkStart: '00:00',
-        checkEnd: '23:59',
+        checkStart: start,
+        checkEnd: end,
         pollIntervalMinutes: state.interval,
         telegramBotToken: this.botToken,
         telegramChatId: chatId,
         trainAuthToken: process.env.TCDD_AUTH_TOKEN || process.env.TRAIN_AUTH_TOKEN || '',
         unitId: process.env.UNIT_ID || '',
-        checkMultipleDates: false,
-        maxDaysToCheck: 1
+        checkMultipleDates: !!state.multiDate,
+        maxDaysToCheck: state.days ?? DEFAULTS.days
       };
 
-      const response = await fetchSeatAvailabilityForDate(config, state.date);
-      const availability = parseSeatAvailability(response, state.date);
+      // Çoklu tarih modunda bugünden itibaren birden fazla gün taranır.
+      const dates = state.multiDate ? generateDateRange(config) : [state.date];
+      const { results } = await fetchSeatAvailabilityForMultipleDates(config, dates);
 
       state.lastCheck = new Date().toISOString();
 
-      const fresh = this.filterAlreadyNotified(state, availability.departures);
+      let anySeats = false;
+      const freshAll: Departure[] = [];
+      let notifyDate = state.date;
 
-      if (fresh.length > 0) {
-        const coaches = fresh.flatMap(d => d.coaches);
+      for (const { date, response } of results) {
+        const availability = parseSeatAvailability(response, date);
+        if (availability.coaches.length > 0) anySeats = true;
+
+        const fresh = this.filterAlreadyNotified(state, availability.departures, date);
+        if (fresh.length > 0) {
+          freshAll.push(...fresh);
+          notifyDate = date;
+        }
+      }
+
+      if (freshAll.length > 0) {
+        const coaches = freshAll.flatMap(d => d.coaches);
         await sendTelegramNotification(
           config,
-          { ...availability, departures: fresh, coaches },
+          { trainNumber: '', date: notifyDate, route: '', coaches, hasAvailableSeats: true, departures: freshAll },
           coaches
         );
       }
 
       await this.persist();
-      return availability.coaches.length > 0;
+      return anySeats;
 
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
@@ -410,7 +589,7 @@ export class TelegramBot {
    * Son bir saat içinde bildirilen seferleri ayıklar,
    * böylece her turda aynı mesaj tekrar gönderilmez.
    */
-  private filterAlreadyNotified(state: BotState, departures: ReturnType<typeof parseSeatAvailability>['departures']) {
+  private filterAlreadyNotified(state: BotState, departures: Departure[], date: string) {
     const now = Date.now();
     const notified = state.notified ?? {};
 
@@ -420,7 +599,7 @@ export class TelegramBot {
     }
 
     const fresh = departures.filter(departure => {
-      const key = `${state.date}-${departure.trainNumber}-${departure.departureTime}-${departure.coaches.reduce((s, c) => s + c.availableSeats, 0)}`;
+      const key = `${date}-${departure.trainNumber}-${departure.departureTime}-${departure.coaches.reduce((s, c) => s + c.availableSeats, 0)}`;
       if (notified[key]) return false;
       notified[key] = now;
       return true;
@@ -464,4 +643,13 @@ function normalizeDate(input: string): string | null {
   if (date.toISOString().slice(0, 10) !== `${year}-${month}-${day}`) return null;
 
   return `${year}-${month}-${day}`;
+}
+
+/** `HH:MM` biçimini (00:00 - 23:59) doğrular. */
+function isValidTime(input: string): boolean {
+  const m = /^(\d{2}):(\d{2})$/.exec(input);
+  if (!m) return false;
+  const h = parseInt(m[1], 10);
+  const min = parseInt(m[2], 10);
+  return h >= 0 && h <= 23 && min >= 0 && min <= 59;
 }

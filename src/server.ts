@@ -85,6 +85,7 @@ const server = app.listen(PORT, async () => {
   }
 
   await bot.restore();
+  await bot.registerCommands();
   await registerWebhook();
 });
 

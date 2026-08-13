@@ -83,12 +83,20 @@ Komutlar:
 |---|---|
 | `/check` | Otomatik kontrolü başlat |
 | `/now` | Hemen bir kez kontrol et |
-| `/stop` | Kontrolü durdur |
-| `/status` | Mevcut durumu göster |
-| `/stations` | Desteklenen istasyonlar |
+| `/stop` | Otomatik kontrolü durdur |
+| `/status` | Mevcut ayarları göster |
 | `/setroute ankara istanbul` | Güzergah ayarla |
-| `/setdate 2025-12-30` | Tarih ayarla |
+| `/swap` | Kalkış ↔ varış yönünü ters çevir |
+| `/setdate 2025-12-30` | Aranacak tarihi ayarla |
+| `/multi 7` | Bugünden itibaren N gün tara (0 = kapat) |
+| `/stations` | Desteklenen istasyonlar |
 | `/setinterval 15` | Kontrol aralığı (dakika) |
+| `/settime 08:00 22:00` | Sadece bu saatler arası bildir |
+| `/reset` | Ayarları varsayılana döndür |
+| `/help` | Yardım ve komut listesi |
+
+Bot açılışta bu komutları Telegram'ın komut menüsüne de kaydeder; kullanıcı `/`
+yazınca komutlar açıklamalarıyla listelenir.
 
 Ayarlar `bot-state.json` dosyasında saklanır; sunucu yeniden başladığında aktif kontroller kaldığı yerden devam eder.
 

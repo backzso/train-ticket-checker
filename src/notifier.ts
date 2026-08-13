@@ -27,6 +27,18 @@ export async function sendTelegramMessage(
   }
 }
 
+/**
+ * Telegram'ın komut menüsünü ayarlar (kullanıcı `/` yazınca görünür).
+ */
+export async function sendTelegramSetMyCommands(
+  botToken: string,
+  commands: Array<{ command: string; description: string }>
+): Promise<void> {
+  await axios.post(`https://api.telegram.org/bot${botToken}/setMyCommands`, {
+    commands
+  }, { timeout: 15000 });
+}
+
 export async function sendTelegramNotification(
   config: Config,
   availability: ParsedAvailability,
