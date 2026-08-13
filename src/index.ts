@@ -1,23 +1,9 @@
 import { loadConfig, isWithinCheckHours, generateDateRange, shouldSendNotifications, Config } from './config';
-import { getTokenInfo } from './auth';
 import { fetchSeatAvailabilityForMultipleDates } from './fetcher';
 import { parseSeatAvailability } from './parser';
-import { sendTelegramNotification, sendTokenExpiryWarning, sendErrorNotification } from './notifier';
+import { sendTelegramNotification, sendErrorNotification } from './notifier';
 
 const log = (message: string) => console.log(`[${new Date().toISOString()}] ${message}`);
-
-/**
- * Token'ın süresi dolmak üzereyse Telegram'dan uyarı gönderir.
- */
-async function checkTokenExpiry(config: Config, notify: boolean): Promise<void> {
-  const info = getTokenInfo(config.trainAuthToken);
-  if (!info?.expiresSoon) return;
-
-  log(`UYARI: Token ${info.daysRemaining} gün sonra doluyor`);
-  if (notify) {
-    await sendTokenExpiryWarning(config, info.daysRemaining, info.expiresAt);
-  }
-}
 
 /**
  * Tek bir kontrol turu çalıştırır.
@@ -31,8 +17,6 @@ async function runCheck(config: Config): Promise<void> {
 
   const notify = shouldSendNotifications();
   log(`Bildirimler: ${notify ? 'açık' : 'kapalı'}`);
-
-  await checkTokenExpiry(config, notify);
 
   const datesToCheck = generateDateRange(config);
   log(`${datesToCheck.length} tarih kontrol ediliyor: ${datesToCheck.join(', ')}`);
@@ -57,7 +41,12 @@ async function runCheck(config: Config): Promise<void> {
       totalCoaches += availability.coaches.length;
 
       if (notify) {
-        await sendTelegramNotification(config, availability, availability.coaches);
+        // Bildirim hatası koltuk bulma başarısını gölgelememeli; logla, çalışmayı sürdür.
+        try {
+          await sendTelegramNotification(config, availability, availability.coaches);
+        } catch (error) {
+          log(`Bildirim gönderilemedi (${date}): ${(error as Error).message}`);
+        }
       }
     }
   }

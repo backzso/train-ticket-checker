@@ -33,11 +33,12 @@ function readEnv(name: string): string | undefined {
 }
 
 export function loadConfig(): Config {
+  // TCDD_AUTH_TOKEN zorunlu değildir: verilmezse auth.ts'deki gömülü token kullanılır.
   const requiredVars = [
     'TCDD_ENDPOINT', 'DEPARTURE_STATION_ID', 'DEPARTURE_STATION_NAME',
     'ARRIVAL_STATION_ID', 'ARRIVAL_STATION_NAME', 'DEPARTURE_DATE',
     'CHECK_START', 'CHECK_END', 'POLL_INTERVAL_MINUTES',
-    'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID', 'TCDD_AUTH_TOKEN', 'UNIT_ID'
+    'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID', 'UNIT_ID'
   ];
 
   const missingVars = requiredVars.filter(varName => !readEnv(varName));

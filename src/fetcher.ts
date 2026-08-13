@@ -54,6 +54,9 @@ export async function fetchSeatAvailabilityForDate(config: Config, dateStr: stri
   };
 
   try {
+    // TCDD'nin nginx katmanı, isteğin gerçek tarayıcıdan geldiğini bu başlık
+    // setiyle doğruluyor. Eksik olursa (örn. varsayılan curl/axios UA'sı) API'ye
+    // ulaşmadan 403 döner — bu yüzden tam tarayıcı başlık seti gönderilir.
     const response = await axios.post(config.trainEndpoint, requestBody, {
       timeout: 30000,
       headers: {
@@ -62,7 +65,14 @@ export async function fetchSeatAvailabilityForDate(config: Config, dateStr: stri
         'Authorization': authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`,
         'Content-Type': 'application/json',
         'Origin': 'https://ebilet.tcddtasimacilik.gov.tr',
+        'Referer': 'https://ebilet.tcddtasimacilik.gov.tr/',
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36',
+        'sec-ch-ua': '"Chromium";v="141", "Google Chrome";v="141", "Not?A_Brand";v="24"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"macOS"',
+        'sec-fetch-dest': 'empty',
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-site': 'same-site',
         'unit-id': config.unitId
       }
     });
@@ -125,8 +135,10 @@ export async function fetchSeatAvailabilityForMultipleDates(
       failures.push({ date, error: err });
     }
 
+    // TCDD arka arkaya gelen isteklere rate-limit uyguluyor; tarihler arasında
+    // bekleyerek 403 almayı önle.
     if (index < dates.length - 1) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 3000));
     }
   }
 

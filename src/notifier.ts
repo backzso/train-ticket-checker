@@ -42,32 +42,6 @@ export async function sendTelegramNotification(
 }
 
 /**
- * Token'ın süresi dolmak üzereyken uyarı gönderir.
- * Bildirim hatası ana akışı durdurmaz.
- */
-export async function sendTokenExpiryWarning(
-  config: Config,
-  daysRemaining: number,
-  expiresAt: Date
-): Promise<void> {
-  const message =
-    `⚠️ *TCDD Token Uyarısı*\n\n` +
-    `Token'ın süresi *${daysRemaining} gün* sonra doluyor.\n` +
-    `*Son geçerlilik:* ${expiresAt.toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' })}\n\n` +
-    `Süresi dolduğunda kontroller duracak. Yenilemek için:\n` +
-    `1. ebilet.tcddtasimacilik.gov.tr adresinde arama yapın\n` +
-    `2. DevTools → Network → isteğin Authorization başlığını kopyalayın\n` +
-    `3. GitHub → Settings → Secrets → \`TCDD_AUTH_TOKEN\` değerini güncelleyin`;
-
-  try {
-    await sendTelegramMessage(config.telegramBotToken, config.telegramChatId, message);
-    console.log(`[${new Date().toISOString()}] Token expiry warning sent (${daysRemaining} days left)`);
-  } catch (error) {
-    console.error(`[${new Date().toISOString()}] Token uyarısı gönderilemedi:`, error);
-  }
-}
-
-/**
  * Çalıştırma sırasında oluşan hatayı Telegram'a bildirir.
  * Bildirim hatası ana akışı durdurmaz.
  */

@@ -19,23 +19,30 @@ npm run build
 npm start
 ```
 
-## TCDD token'ı alma
+## Kimlik doğrulama
 
-Token uzun ömürlüdür (~15 ay), sık sık yenilemek gerekmez.
+TCDD'nin arama API'si, token yerine isteğin **gerçek bir tarayıcıdan** gelip
+gelmediğine bakarak erişimi denetler. Bu yüzden:
 
-1. Tarayıcıda [ebilet.tcddtasimacilik.gov.tr](https://ebilet.tcddtasimacilik.gov.tr) adresinde bir sefer araması yapın
-2. DevTools → **Network** sekmesini açın
-3. `train-availability` isteğine tıklayın → **Headers**
-4. `Authorization` başlığının **tam** değerini kopyalayın (uzun bir JWT'dir, ~1000+ karakter)
-5. `.env` içindeki `TCDD_AUTH_TOKEN` değerine yapıştırın
+- **Token gerekmez.** TCDD web uygulamasının kendisi de sabit, "süresi dolmuş"
+  bir token kullanır; API `exp` alanını denetlemez. Bu token `src/auth.ts`
+  içine gömülüdür, bir şey ayarlamanıza gerek yoktur.
+- **Asıl önemli olan başlıklardır.** `src/fetcher.ts`, gerçek Chrome'un
+  gönderdiği başlık setini (`User-Agent`, `Referer`, `Origin`, `sec-*`) taklit
+  eder. Bunlar eksik olursa API `403` döner.
 
-Token'ın durumunu kontrol etmek için:
+İsterseniz kendi token'ınızı `TCDD_AUTH_TOKEN` ile geçebilirsiniz, ama gerekli
+değildir.
+
+API erişiminin çalışıp çalışmadığını test etmek için:
 
 ```bash
 npm run check:token
 ```
 
-Süresi dolmasına 7 gün kalınca Telegram'dan otomatik uyarı gelir.
+> **Not:** TCDD bir gün tarayıcı uygulamasını güncellerse, `src/auth.ts`
+> içindeki gömülü token veya `src/fetcher.ts` içindeki başlıklar güncellenmesi
+> gerekebilir. `403` alırsanız ilk buraya bakın.
 
 ## Yapılandırma
 
@@ -106,8 +113,8 @@ curl -F "url=https://<adresiniz>/webhook" \
 | Belirti | Sebep |
 |---|---|
 | `Missing required environment variables` | `.env` eksik veya adlar hatalı. Eski `TRAIN_*` adları da kabul edilir. |
-| `kimlik doğrulama hatası (403)` | Token geçersiz/eksik kopyalanmış. `npm run check:token` çalıştırın. |
-| `Token çözümlenemedi` | Token eksik kopyalanmış — JWT 2 nokta içerir ve çok uzundur. |
+| `isteği başarısız (403)` | nginx isteği eledi — `src/fetcher.ts` başlıkları güncel değil. |
+| `isteği başarısız (400)` | `DEPARTURE_DATE` geçmişte veya biçimi hatalı. |
 | Telegram `404` | `TELEGRAM_BOT_TOKEN` veya `TELEGRAM_CHAT_ID` hatalı. |
 | Koltuk bulunuyor ama bildirim yok | `SEND_NOTIFICATIONS=false` olabilir. |
 

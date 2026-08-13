@@ -1,44 +1,38 @@
 import dotenv from 'dotenv';
-import { getTokenInfo } from './auth';
+import { loadConfig } from './config';
+import { fetchSeatAvailabilityForDate } from './fetcher';
 
 dotenv.config();
 
 /**
- * TCDD_AUTH_TOKEN'ın durumunu gösterir.
+ * TCDD API'sine gerçek bir istek atarak erişimin çalışıp çalışmadığını test eder.
+ * Token exp'i denetlenmez (API zaten denetlemiyor); asıl önemli olan API'nin
+ * yanıt verip vermediğidir.
+ *
  * Kullanım: npm run check:token
  */
-function main(): void {
-  const token = process.env.TCDD_AUTH_TOKEN || process.env.TRAIN_AUTH_TOKEN;
-
-  if (!token) {
-    console.error('❌ TCDD_AUTH_TOKEN tanımlı değil (.env dosyanızı kontrol edin)');
+async function main(): Promise<void> {
+  let config;
+  try {
+    config = loadConfig();
+  } catch (error) {
+    console.error(`❌ Yapılandırma hatası: ${(error as Error).message}`);
     process.exit(1);
   }
 
-  const info = getTokenInfo(token);
+  const today = new Date().toISOString().split('T')[0];
+  console.log(`🔍 TCDD API test ediliyor (${config.departureStationName} → ${config.arrivalStationName})...`);
 
-  if (!info) {
-    console.error('❌ Token çözümlenemedi — geçerli bir JWT değil.');
-    console.error(`   Uzunluk: ${token.length} karakter, nokta sayısı: ${(token.match(/\./g) || []).length} (JWT için 2 olmalı)`);
-    console.error('   Muhtemelen token eksik kopyalanmış. Tarayıcıdan tamamını kopyalayın.');
+  try {
+    const response = await fetchSeatAvailabilityForDate(config, today);
+    const trainCount = response.trainLegs?.[0]?.trainAvailabilities?.[0]?.trains?.length ?? 0;
+    console.log(`✅ API erişimi çalışıyor — ${trainCount} sefer döndü.`);
+  } catch (error) {
+    console.error(`❌ API erişimi başarısız: ${(error as Error).message}`);
+    console.error('   403 alıyorsanız TCDD nginx katmanı isteği reddediyordur;');
+    console.error('   fetcher.ts içindeki tarayıcı başlıklarının güncel olduğundan emin olun.');
     process.exit(1);
   }
-
-  const expiresAt = info.expiresAt.toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' });
-
-  if (info.isExpired) {
-    console.error(`❌ Token süresi DOLMUŞ (${expiresAt})`);
-    console.error('   Yeni token alıp GitHub Secrets > TCDD_AUTH_TOKEN değerini güncelleyin.');
-    process.exit(1);
-  }
-
-  if (info.expiresSoon) {
-    console.warn(`⚠️  Token ${info.daysRemaining} gün sonra doluyor (${expiresAt})`);
-    console.warn('   Yakında yenilemeniz gerekecek.');
-    return;
-  }
-
-  console.log(`✅ Token geçerli — ${info.daysRemaining} gün kaldı (${expiresAt})`);
 }
 
 main();
