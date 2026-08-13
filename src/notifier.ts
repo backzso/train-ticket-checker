@@ -61,6 +61,27 @@ export async function sendErrorNotification(
   }
 }
 
+/**
+ * Kısmi başarısızlık uyarısını Telegram'a gönderir (bazı tarihler sorgulanamadı,
+ * ama en az biri başarılı oldu). Bildirim hatası ana akışı durdurmaz.
+ */
+export async function sendWarningNotification(
+  config: Config,
+  title: string,
+  detail: string
+): Promise<void> {
+  const message =
+    `⚠️ *${escapeMarkdown(title)}*\n\n` +
+    `${escapeMarkdown(detail)}\n\n` +
+    `_${new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' })}_`;
+
+  try {
+    await sendTelegramMessage(config.telegramBotToken, config.telegramChatId, message);
+  } catch (sendError) {
+    console.error(`[${new Date().toISOString()}] Uyarı bildirimi gönderilemedi:`, sendError);
+  }
+}
+
 function buildNotificationMessage(
   availability: ParsedAvailability,
   newlyAvailableSeats: SeatAvailability[],

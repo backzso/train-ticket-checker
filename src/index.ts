@@ -1,7 +1,7 @@
 import { loadConfig, isWithinCheckHours, generateDateRange, shouldSendNotifications, Config } from './config';
 import { fetchSeatAvailabilityForMultipleDates } from './fetcher';
 import { parseSeatAvailability } from './parser';
-import { sendTelegramNotification, sendErrorNotification } from './notifier';
+import { sendTelegramNotification, sendErrorNotification, sendWarningNotification } from './notifier';
 
 const log = (message: string) => console.log(`[${new Date().toISOString()}] ${message}`);
 
@@ -55,9 +55,21 @@ async function runCheck(config: Config): Promise<void> {
     log('Hiçbir tarihte boş koltuk bulunamadı');
   }
 
-  // Bazı tarihler başarısız olduysa görünür kıl, ama bulunanları da bildir.
+  // Bazı tarihler başarısız olduysa (ama en az biri başarılı) görünür kıl.
+  // 403 gibi sistemsel hatalar sessiz kalmamalı — Telegram'a da uyarı gönder.
   if (failures.length > 0) {
     log(`UYARI: ${failures.length}/${datesToCheck.length} tarih sorgulanamadı`);
+
+    if (notify) {
+      const detail = failures
+        .map(f => `${f.date}: ${f.error.message}`)
+        .join('\n');
+      await sendWarningNotification(
+        config,
+        `${failures.length}/${datesToCheck.length} tarih sorgulanamadı`,
+        detail
+      );
+    }
   }
 
   log('Kontrol tamamlandı');

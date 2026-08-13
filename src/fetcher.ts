@@ -88,10 +88,17 @@ export async function fetchSeatAvailabilityForDate(config: Config, dateStr: stri
   } catch (error) {
     if (axios.isAxiosError(error)) {
       const status = error.response?.status;
-      if (status === 401 || status === 403) {
+      if (status === 403) {
         throw new Error(
-          `TCDD API kimlik doğrulama hatası (${status}). ` +
-          `TCDD_AUTH_TOKEN geçersiz olabilir; tarayıcıdan yeni token alın.`
+          `TCDD API isteği reddedildi (403). nginx katmanı isteği eledi — ` +
+          `büyük olasılıkla fetcher.ts'deki tarayıcı başlıkları veya gömülü ` +
+          `token güncel değil. Ayrıntı için TOKEN.md'ye bakın.`
+        );
+      }
+      if (status === 401) {
+        throw new Error(
+          `TCDD API kimlik doğrulama hatası (401). Sağlanan TCDD_AUTH_TOKEN ` +
+          `geçersiz olabilir; secret'ı silip gömülü token'ı kullanmayı deneyin.`
         );
       }
       throw new Error(

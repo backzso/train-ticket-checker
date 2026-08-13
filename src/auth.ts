@@ -36,8 +36,3 @@ const EMBEDDED_PROD_TOKEN =
 export function resolveAuthToken(config: Config): string {
   return config.trainAuthToken || EMBEDDED_PROD_TOKEN;
 }
-
-/** Gömülü token'ı dışarıya açar (yapılandırmada token yoksa kullanılır). */
-export function getEmbeddedToken(): string {
-  return EMBEDDED_PROD_TOKEN;
-}
