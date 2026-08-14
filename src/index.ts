@@ -103,6 +103,17 @@ async function runContinuous(): Promise<void> {
   log(`Sürekli mod: ${config.pollIntervalMinutes} dakika aralıkla`);
   log(`Kontrol saatleri: ${config.checkStart} - ${config.checkEnd}`);
 
+  // İsteğe bağlı çalışma süresi sınırı (dakika). GitHub Actions'ta job'ı
+  // süresiz açık tutmamak için kullanılır; süre dolunca düzgünce (exit 0) çıkar.
+  const maxRuntimeMin = parseInt(process.env.MAX_RUNTIME_MINUTES || '0', 10);
+  if (maxRuntimeMin > 0) {
+    log(`Maksimum çalışma süresi: ${maxRuntimeMin} dakika`);
+    setTimeout(() => {
+      log('Maksimum çalışma süresine ulaşıldı, çıkılıyor.');
+      process.exit(0);
+    }, maxRuntimeMin * 60 * 1000).unref();
+  }
+
   const tick = async () => {
     try {
       await runCheck(config);

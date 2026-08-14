@@ -114,6 +114,11 @@ export function isWithinCheckHours(config: Config): boolean {
 
 export function generateDateRange(config: Config): string[] {
   if (!config.checkMultipleDates) {
+    // CHECK_TODAY=true ise sabit DEPARTURE_DATE yerine bugünü kontrol et.
+    // (Aynı gün boşalan koltuk yakalamak için; tarihi elle güncellemeye gerek kalmaz.)
+    if (process.env.CHECK_TODAY === 'true') {
+      return [localDate()];
+    }
     return [config.departureDate];
   }
 

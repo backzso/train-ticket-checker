@@ -6,9 +6,9 @@ TCDD seferlerinde boş koltuk arayıp bulduğunda Telegram'dan bildirim göndere
 
 | Mod | Komut | Ne yapar |
 |---|---|---|
-| **Tek seferlik** | `npm start` | Bir kez kontrol eder, çıkar. GitHub Actions bunu kullanır. |
-| **Sürekli** | `npm run start:continuous` | Belirlenen aralıkla kendi kendine kontrol eder. |
-| **İnteraktif bot** | `npm run start:bot` | Telegram'dan komutlarla yönetilen sunucu. |
+| **Tek seferlik** | `npm start` | Bir kez kontrol eder, çıkar. |
+| **Sürekli** | `npm run start:continuous` | Belirlenen aralıkla kendi kendine kontrol eder. GitHub Actions bunu kullanır. |
+| **İnteraktif bot** | `npm run start:bot` | Telegram'dan komutlarla yönetilen sunucu (ayrı deploy gerekir). |
 
 ## Kurulum
 
@@ -56,20 +56,36 @@ Tüm ayarlar `.env` üzerinden yapılır — açıklamalar için `env.example` d
 
 ## GitHub Actions ile otomatik çalıştırma
 
-Workflow her gün 09:00 UTC'de (Türkiye saatiyle 12:00) çalışır, ayrıca Actions sekmesinden elle tetiklenebilir.
+Workflow, Türkiye saatiyle ~07:00-23:00 arası **her saat başı** tetiklenir.
+Her tetikleme **sürekli modda ~55 dakika** çalışıp **5 dakikada bir** kontrol
+eder, sonra düzgünce çıkar. Böylece gün boyunca neredeyse kesintisiz, sık
+kontrol olur — aynı gün iptalden boşalan koltuğu yakalamak için.
 
-Gereken secret'lar **Settings → Secrets and variables → Actions** altında tanımlanır:
+Aranan tarih için `CHECK_TODAY: 'true'` workflow'da sabit; yani **her zaman
+o günü** kontrol eder, `DEPARTURE_DATE` secret'ını elle güncellemeye gerek
+yoktur. Kapsama saatlerini `CHECK_START` / `CHECK_END` secret'larıyla
+sınırlarsın (Türkiye saati).
+
+> **Not:** GitHub'ın scheduled cron'u yoğunlukta gecikebilir/atlanabilir; bu
+> yüzden aralığı cron'a değil, iş içindeki 5 dakikalık döngüye bıraktık. Public
+> repo'da Actions dakikaları ücretsizdir.
+
+Gereken secret'lar **Settings → Secrets and variables → Actions** altında
+tanımlanır:
 
 ```
 TCDD_ENDPOINT            DEPARTURE_STATION_ID     DEPARTURE_STATION_NAME
-TCDD_AUTH_TOKEN          ARRIVAL_STATION_ID       ARRIVAL_STATION_NAME
-UNIT_ID                  DEPARTURE_DATE           CHECK_START
-CHECK_END                POLL_INTERVAL_MINUTES    CHECK_MULTIPLE_DATES
-MAX_DAYS_TO_CHECK        TELEGRAM_BOT_TOKEN       TELEGRAM_CHAT_ID
-SEND_NOTIFICATIONS
+ARRIVAL_STATION_ID       ARRIVAL_STATION_NAME     UNIT_ID
+CHECK_START              CHECK_END                DEPARTURE_DATE
+TELEGRAM_BOT_TOKEN       TELEGRAM_CHAT_ID         SEND_NOTIFICATIONS
 ```
 
-Sorgular başarısız olursa iş **hata verir** (yeşil görünüp sessizce hiçbir şey yapmaz durumda kalmaz) ve hata Telegram'a bildirilir.
+`TCDD_AUTH_TOKEN` gerekmez (gömülü token kullanılır). `POLL_INTERVAL_MINUTES`,
+`MAX_RUNTIME_MINUTES`, `CHECK_TODAY`, `CHECK_MULTIPLE_DATES` workflow içinde
+sabittir; `DEPARTURE_DATE` yalnızca `CHECK_TODAY` kapatılırsa kullanılır.
+
+Sorgular başarısız olursa iş **hata verir** (yeşil görünüp sessizce hiçbir şey
+yapmaz durumda kalmaz) ve hata Telegram'a bildirilir.
 
 ## İnteraktif Telegram botu
 
