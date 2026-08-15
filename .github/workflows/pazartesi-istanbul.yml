@@ -55,23 +55,11 @@ jobs:
       - name: Build application
         run: npm run build
 
+      # Not: Ankara -> Söğütlüçeşme (1324) direkt YHT sorgusu TCDD'de 400 veriyor
+      # (o güzergahta geçerli varış değil), bu yüzden yalnızca Bostancı kontrol
+      # edilir. Kadıköy tarafı için Bostancı en yakın çalışan duraktır.
       - name: Ankara -> Bostancı
-        # Sorgu hatası (403/koltuk yok) bu adımı kırmasın; iki istasyon da denensin.
-        continue-on-error: true
         run: node dist/index.js
         env:
           ARRIVAL_STATION_ID: '1323'
           ARRIVAL_STATION_NAME: 'İSTANBUL(BOSTANCI)'
-
-      # TCDD arka arkaya isteklere rate-limit uyguluyor; istasyonlar arası bekle.
-      - name: Bekle (rate-limit)
-        if: always()
-        run: sleep 20
-
-      - name: Ankara -> Söğütlüçeşme
-        if: always()
-        continue-on-error: true
-        run: node dist/index.js
-        env:
-          ARRIVAL_STATION_ID: '1324'
-          ARRIVAL_STATION_NAME: 'SÖĞÜTLÜÇEŞME'
