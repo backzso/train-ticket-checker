@@ -1,0 +1,70 @@
+name: Pazartesi İstanbul (17 Ağustos)
+
+# 17 Ağustos 2026 Pazartesi, ANKARA GAR -> İstanbul (Bostancı + Söğütlüçeşme)
+# seferlerinde boş koltuk çıkarsa haber verir. Bugünden itibaren çalışır.
+# Pazartesi geçince bu dosyayı silmen (veya workflow'u disable etmen) yeterli.
+
+on:
+  schedule:
+    # Türkiye saatiyle ~08:00-23:00 arası her saat başı (UTC 05-20).
+    - cron: '0 5-20 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: pazartesi-istanbul
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      TZ: Europe/Istanbul
+      # Ortak ayarlar
+      TCDD_ENDPOINT: ${{ secrets.TCDD_ENDPOINT }}
+      UNIT_ID: ${{ secrets.UNIT_ID }}
+      DEPARTURE_STATION_ID: '98'
+      DEPARTURE_STATION_NAME: 'ANKARA GAR'
+      DEPARTURE_DATE: '2026-08-17'
+      CHECK_TODAY: 'false'
+      CHECK_MULTIPLE_DATES: 'false'
+      # Belirli bir günü aradığımız için lead-time filtresi gerekmez;
+      # o günün tüm seferleri geçerli (0 = kapalı).
+      MIN_LEAD_MINUTES: '0'
+      POLL_INTERVAL_MINUTES: '5'
+      CHECK_START: '00:00'
+      CHECK_END: '23:59'
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      SEND_NOTIFICATIONS: ${{ secrets.SEND_NOTIFICATIONS }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+
+      - name: Ankara -> Bostancı
+        run: node dist/index.js
+        env:
+          ARRIVAL_STATION_ID: '1323'
+          ARRIVAL_STATION_NAME: 'İSTANBUL(BOSTANCI)'
+
+      - name: Ankara -> Söğütlüçeşme
+        # Bir önceki adım koltuk bulamayıp exit 1 verse bile bu adım çalışsın.
+        if: always()
+        run: node dist/index.js
+        env:
+          ARRIVAL_STATION_ID: '1324'
+          ARRIVAL_STATION_NAME: 'SÖĞÜTLÜÇEŞME'
