@@ -61,24 +61,29 @@ export function parseSeatAvailability(response: TCDDResponse, dateStr?: string):
   const coaches: SeatAvailability[] = [];
   const departuresMap = new Map<string, Departure>();
 
-  const today = localDate();
-  const currentTime = localTime();
+  const now = Date.now();
+
+  // Şu andan itibaren en az bu kadar dakika sonra kalkan seferler bildirilir.
+  // Böylece "09:00'da 09:05 treni" gibi yetişilemeyecek seferler elenir.
+  // MIN_LEAD_MINUTES ile ayarlanır (varsayılan 60 dk).
+  const leadMinutes = parseInt(process.env.MIN_LEAD_MINUTES || '60', 10);
+  const earliestDeparture = now + (isNaN(leadMinutes) ? 60 : leadMinutes) * 60 * 1000;
 
   for (const trainLeg of response.trainLegs ?? []) {
     for (const trainAvailability of trainLeg.trainAvailabilities ?? []) {
       for (const train of trainAvailability.trains ?? []) {
         const timestamp = train.segments?.[0]?.departureTime;
 
-        // Kalkış zamanı bilinmiyorsa tren atlanır — geçmiş sefer filtresi
+        // Kalkış zamanı bilinmiyorsa tren atlanır — lead-time filtresi
         // uydurma bir saate göre çalışmasın.
         if (!timestamp) continue;
 
         const departureDateTime = new Date(timestamp);
         const departureTime = localTime(departureDateTime);
-        const departureDate = localDate(departureDateTime);
 
-        // Sadece bugünün geçmiş seferlerini ele; gelecek tarihler dokunulmaz.
-        if (departureDate === today && departureTime < currentTime) {
+        // Yeterince ileride olmayan seferleri ele (geçmiş + çok yakın kalkışlar).
+        // Gelecek günlerdeki seferler earliestDeparture'ı zaten aşar, etkilenmez.
+        if (departureDateTime.getTime() < earliestDeparture) {
           continue;
         }
 
@@ -111,7 +116,7 @@ export function parseSeatAvailability(response: TCDDResponse, dateStr?: string):
 
   return {
     trainNumber: firstTrain?.number || 'Unknown',
-    date: dateStr || today,
+    date: dateStr || localDate(),
     route: firstTrain?.name || 'Unknown',
     coaches,
     hasAvailableSeats: coaches.length > 0,

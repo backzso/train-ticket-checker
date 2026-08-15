@@ -55,6 +55,9 @@ jobs:
           # boşluk ~5 dk kalsın; bir sonraki saatin tetiklemesi devralır).
           POLL_INTERVAL_MINUTES: '5'
           MAX_RUNTIME_MINUTES: '55'
+          # Sadece şu andan en az 60 dk sonra kalkan seferleri bildir
+          # (yetişilemeyecek yakın/geçmiş seferler elenir).
+          MIN_LEAD_MINUTES: '60'
           # Bildirim saat aralığı (Türkiye saati).
           CHECK_START: ${{ secrets.CHECK_START }}
           CHECK_END: ${{ secrets.CHECK_END }}
