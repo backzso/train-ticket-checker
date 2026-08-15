@@ -2,9 +2,10 @@ name: Check Train Seats
 
 on:
   schedule:
-    # Türkiye saatiyle ~07:00-23:00 arası her saat başı tetiklenir (UTC 04-20).
-    # Her tetikleme ~50 dakika çalıştığı için kapsama neredeyse kesintisizdir.
-    - cron: '0 4-20 * * *'
+    # Türkiye saatiyle ~06:00-24:00 arası her saat başı tetiklenir (UTC 03-21).
+    # Her tetikleme ~55 dakika çalıştığı için kapsama neredeyse kesintisizdir.
+    # Kapsama saatleri CHECK_START/CHECK_END secret'larıyla sınırlanır.
+    - cron: '0 3-21 * * *'
   workflow_dispatch:
 
 # Aynı anda birden fazla kontrol çalışmasını engelle (üst üste binmesin).
