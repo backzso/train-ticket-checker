@@ -56,14 +56,21 @@ jobs:
         run: npm run build
 
       - name: Ankara -> Bostancı
+        # Sorgu hatası (403/koltuk yok) bu adımı kırmasın; iki istasyon da denensin.
+        continue-on-error: true
         run: node dist/index.js
         env:
           ARRIVAL_STATION_ID: '1323'
           ARRIVAL_STATION_NAME: 'İSTANBUL(BOSTANCI)'
 
-      - name: Ankara -> Söğütlüçeşme
-        # Bir önceki adım koltuk bulamayıp exit 1 verse bile bu adım çalışsın.
+      # TCDD arka arkaya isteklere rate-limit uyguluyor; istasyonlar arası bekle.
+      - name: Bekle (rate-limit)
         if: always()
+        run: sleep 20
+
+      - name: Ankara -> Söğütlüçeşme
+        if: always()
+        continue-on-error: true
         run: node dist/index.js
         env:
           ARRIVAL_STATION_ID: '1324'
